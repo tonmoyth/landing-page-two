@@ -1,0 +1,28 @@
+[
+  {
+    "id": "honey1",
+    "name": "Honey Jar 1",
+    "price": 600,
+    "img": "/assets/powder.png",
+    "icons": [
+      "/assets/chilli.png",
+      "/assets/chilli2.png"
+    ]
+  },
+  {
+    "id": "honey2",
+    "name": "Honey Jar 2",
+    "price": 1200,
+    "img": "/assets/holud.png",
+    "icons": [
+      "/assets/holud1.png"
+    ]
+  },
+  {
+    "id": "honey3",
+    "name": "Honey Jar 3",
+    "price": 2200,
+    "img": "https://via.placeholder.com/300x400?text=Honey+3",
+    "icons": []
+  }
+]
