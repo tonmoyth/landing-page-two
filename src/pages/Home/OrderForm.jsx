@@ -1,18 +1,41 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { AxiosSecure } from "../../Hooks/AxiosSecure";
+import Swal from "sweetalert2";
+import OrderSidebar from "../../components/OrderChackSection/OrderChackSection";
 
 /**
- * OrderForm.jsx
- * React + Tailwind + daisyUI
- * - Fetches products from /json/products.json (public/json/products.json)
- * - Radio card selector, quantity control, live summary
- * - Bengali labels
+ * OrderForm.jsx — React + Tailwind + daisyUI + react-hook-form
+ * - Fetches products from /products.json (public/products.json)
+ * - Radio card selector (controlled), quantity control
+ * - Bengali labels + validation
  */
 export default function OrderForm() {
   const [products, setProducts] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const axiosSecure = AxiosSecure();
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    mode: "onBlur",
+    defaultValues: {
+      productId: "",
+      qty: 1,
+      email: "",
+      name: "",
+      status: "pending",
+      phone: "",
+      address: "",
+    },
+  });
 
   // Fetch products (adjust the path if your file is in another folder)
   useEffect(() => {
@@ -25,23 +48,67 @@ export default function OrderForm() {
       })
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
+
         setProducts(list);
-        if (list.length) setSelectedId(list[0].id); // default select first
+        // set default product on first load
+        const firstId = list[0]?.id ?? "";
+        reset((prev) => ({ ...prev, productId: firstId }));
       })
       .catch((e) => setErr(`Failed to load products: ${e.message}`))
       .finally(() => setLoading(false));
-  }, []);
+  }, [reset]);
 
-  // Selected product (depends on both selectedId and products)
+  const productId = watch("productId");
+  const qty = watch("qty") || 1;
+
+  // Selected product (depends on both productId and products)
   const selected = useMemo(() => {
-    return products.find((p) => p.id === selectedId) || null;
-  }, [selectedId, products]);
+    return products.find((p) => String(p.id) === String(productId)) || null;
+  }, [productId, products]);
 
   // Totals (safe guards)
   const price = Number(selected?.price || 0);
-  const subtotal = price * qty;
+  const subtotal = price * (Number(qty) || 1);
   const shipping = 0;
   const total = subtotal + shipping;
+
+  const onSubmit = async (values) => {
+    const payload = {
+      ...values,
+      qty: Number(values.qty) || 1,
+      product: selected,
+      pricing: { price, subtotal, shipping, total },
+      createdAt: new Date().toISOString(),
+    };
+    Swal.fire({
+      title: "Are you sure?",
+      text: "Are you sure you want to place this order?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, order it!",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const response = await axiosSecure.post("/orders", payload);
+          if (response?.data?.orderId) {
+            Swal.fire({
+              title: " Order Successfully",
+              text: "Your order has been placed successfully. Thank you for shopping with us!",
+              icon: "success",
+            });
+          }
+        } catch (error) {
+          Swal.fire({
+            title: `${error.message}`,
+            text: "Your file has been deleted.",
+            icon: "error",
+          });
+        }
+      }
+    });
+  };
 
   // UI states
   if (loading) {
@@ -90,7 +157,10 @@ export default function OrderForm() {
 
   return (
     <section className="w-full py-6 sm:py-10">
-      <div className="mx-auto w-11/12 lg:w-10/12 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="mx-auto w-11/12 lg:w-10/12 grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
         {/* LEFT: Form & Selector */}
         <div className="lg:col-span-2">
           <div className="rounded-xl border border-base-300 shadow-sm bg-base-100 p-4 sm:p-6">
@@ -102,47 +172,61 @@ export default function OrderForm() {
             {/* Product Selector */}
             <div className="mt-5">
               <p className="mb-2 font-semibold">প্রোডাক্ট নির্বাচন করুন</p>
-              <div className="grid sm:grid-cols-3 gap-3">
-                {products.map((p) => (
-                  <label
-                    key={p.id}
-                    className={`card cursor-pointer border transition ${
-                      selectedId === p.id
-                        ? "border-emerald-900 ring-2 ring-emerald-900/40"
-                        : "border-emerald-900/40 hover:border-emerald-900/70"
-                    }`}
-                  >
-                    <div className="card-body p-3">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="product"
-                          className="radio"
-                          checked={selectedId === p.id}
-                          onChange={() => setSelectedId(p.id)}
-                        />
-                        <img
-                          src={p.img}
-                          alt={p.name}
-                          className="h-12 w-12 rounded object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src =
-                              "https://via.placeholder.com/80x80?text=Image";
-                          }}
-                        />
-                      </div>
-                      <div className="mt-2">
-                        <h4 className="font-semibold leading-tight">
-                          {p.name}
-                        </h4>
-                        <p className="text-sm opacity-70">
-                          ৳ {Number(p.price || 0).toLocaleString("bn-BD")}
-                        </p>
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
+
+              <Controller
+                name="productId"
+                control={control}
+                rules={{ required: "প্রোডাক্ট নির্বাচন করুন" }}
+                render={({ field }) => (
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {products.map((p) => {
+                      const isActive = String(field.value) === String(p.id);
+                      return (
+                        <label
+                          key={p.id}
+                          className={`card cursor-pointer border transition ${
+                            isActive
+                              ? "border-emerald-900 ring-2 ring-emerald-900/40"
+                              : "border-emerald-900/40 hover:border-emerald-900/70"
+                          }`}
+                        >
+                          <div
+                            className="card-body p-3"
+                            onClick={() => field.onChange(p.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                className="radio"
+                                checked={isActive}
+                                onChange={() => field.onChange(p.id)}
+                              />
+                              <img
+                                src={p.img}
+                                alt={p.name}
+                                className="h-12 w-12 rounded object-cover"
+                              />
+                            </div>
+                            <div className="mt-2">
+                              <h4 className="font-semibold leading-tight">
+                                {p.name}
+                              </h4>
+                              <p className="text-sm opacity-70">
+                                ৳ {Number(p.price || 0).toLocaleString("bn-BD")}
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              />
+              {errors.productId && (
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.productId.message}
+                </p>
+              )}
 
               {/* Quantity */}
               <div className="mt-4 flex items-center gap-3">
@@ -150,101 +234,165 @@ export default function OrderForm() {
                 <div className="join">
                   <button
                     className="btn join-item"
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}
                     type="button"
+                    onClick={() =>
+                      setValue("qty", Math.max(1, Number(qty) - 1), {
+                        shouldValidate: true,
+                      })
+                    }
                   >
                     −
                   </button>
+
                   <input
                     type="number"
                     min={1}
                     className="input input-bordered join-item w-20 text-center"
-                    value={qty}
-                    onChange={(e) =>
-                      setQty(Math.max(1, Number(e.target.value) || 1))
-                    }
+                    {...register("qty", {
+                      required: true,
+                      valueAsNumber: true,
+                      min: { value: 1, message: "পরিমাণ কমপক্ষে ১ হতে হবে" },
+                    })}
                   />
+
                   <button
                     className="btn join-item"
-                    onClick={() => setQty((q) => q + 1)}
                     type="button"
+                    onClick={() =>
+                      setValue("qty", Number(qty) + 1, { shouldValidate: true })
+                    }
                   >
                     +
                   </button>
                 </div>
+                {errors.qty && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.qty.message}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Customer form */}
-
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 bg-base-100/70 p-6 rounded-2xl shadow-lg backdrop-blur">
               {/* Email */}
               <div className="form-control col-span-2">
                 <label className="label">
                   <span className="label-text font-semibold text-gray-800">
-                    📧 Email Address <span className="text-red-500">*</span>
+                    Email Address <span className="text-red-500">*</span>
                   </span>
                 </label>
                 <input
                   type="email"
                   placeholder="you@example.com"
-                  className="input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition"
+                  className={`input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition ${
+                    errors.email ? "input-error" : ""
+                  }`}
+                  {...register("email", {
+                    required: "ইমেইল প্রয়োজন",
+                    pattern: {
+                      value: /[^\s@]+@[^\s@]+\.[^\s@]+/,
+                      message: "সঠিক ইমেইল দিন",
+                    },
+                  })}
                 />
                 <span className="label-text-alt text-gray-500 mt-1">
                   অর্ডার সংক্রান্ত সব তথ্য এই ইমেইলে যাবে।
                 </span>
+                {errors.email && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.email.message}
+                  </p>
+                )}
               </div>
 
               {/* Name */}
               <div className="form-control">
                 <label className="label">
                   <span className="label-text font-semibold text-gray-800">
-                    👤 নাম <span className="text-red-500">*</span>
+                    নাম <span className="text-red-500">*</span>
                   </span>
                 </label>
                 <input
                   type="text"
                   placeholder="আপনার নাম লিখুন"
-                  className="input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition"
+                  className={`input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition ${
+                    errors.name ? "input-error" : ""
+                  }`}
+                  {...register("name", {
+                    required: "নাম প্রয়োজন",
+                    minLength: { value: 2, message: "কমপক্ষে ২ অক্ষর" },
+                  })}
                 />
+                {errors.name && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.name.message}
+                  </p>
+                )}
               </div>
 
               {/* Phone */}
               <div className="form-control">
                 <label className="label">
                   <span className="label-text font-semibold text-gray-800">
-                    📞 ফোন নাম্বার <span className="text-red-500">*</span>
+                    ফোন নাম্বার <span className="text-red-500">*</span>
                   </span>
                 </label>
                 <input
                   type="tel"
                   placeholder="01XXXXXXXXX"
-                  className="input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition"
+                  className={`input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition ${
+                    errors.phone ? "input-error" : ""
+                  }`}
+                  {...register("phone", {
+                    required: "ফোন নাম্বার প্রয়োজন",
+                    pattern: {
+                      // Bangladesh mobile pattern (basic): starts with 01 and 11 digits total
+                      value: /^01[0-9]{9}$/,
+                      message: "সঠিক ফোন নাম্বার দিন (১১ ডিজিট)",
+                    },
+                  })}
                 />
                 <span className="label-text-alt text-gray-500 mt-1">
                   ডেলিভারি সংক্রান্ত কল/এসএমএস আসবে এই নাম্বারে।
                 </span>
+                {errors.phone && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.phone.message}
+                  </p>
+                )}
               </div>
 
               {/* Address */}
               <div className="form-control col-span-2">
                 <label className="label">
                   <span className="label-text font-semibold text-gray-800">
-                    🏠 ঠিকানা <span className="text-red-500">*</span>
+                    ঠিকানা <span className="text-red-500">*</span>
                   </span>
                 </label>
                 <textarea
-                  rows="2"
+                  rows={2}
                   placeholder="এড্রেস/এপার্টমেন্ট/এলাকা"
-                  className="textarea textarea-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none resize-none transition"
-                ></textarea>
+                  className={`textarea textarea-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none resize-none transition ${
+                    errors.address ? "textarea-error" : ""
+                  }`}
+                  {...register("address", {
+                    required: "ঠিকানা প্রয়োজন",
+                    minLength: { value: 6, message: "আরও বিস্তারিত দিন" },
+                  })}
+                />
                 <span className="label-text-alt text-gray-500 mt-1">
                   ডেলিভারির সঠিক ঠিকানা লিখুন।
                 </span>
+                {errors.address && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {errors.address.message}
+                  </p>
+                )}
               </div>
 
               {/* Floor/Flat */}
-              <div className="form-control">
+              {/* <div className="form-control">
                 <label className="label">
                   <span className="label-text font-semibold text-gray-800">
                     🏢 ফ্লোর/ফ্ল্যাট
@@ -254,13 +402,20 @@ export default function OrderForm() {
                   type="text"
                   placeholder="যদি প্রযোজ্য (যেমন: ১, ২, ৩)"
                   className="input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition"
+                  {...register("unit")}
                 />
-              </div>
+              </div> */}
             </div>
 
             <div className="mt-5">
-              <button className="btn bg-emerald-900 text-white">
-                Place Order (৳{total.toLocaleString("bn-BD")})
+              <button
+                className="btn bg-emerald-900 text-white"
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting
+                  ? "Processing..."
+                  : `Place Order (৳${total.toLocaleString("bn-BD")})`}
               </button>
               <p className="text-xs opacity-70 mt-2">
                 অর্ডার করার মাধ্যমে আপনি আমাদের <a className="link">Terms</a> &
@@ -296,7 +451,10 @@ export default function OrderForm() {
                 সরাসরি কল করুন অর্ডার করতে:{" "}
                 <span className="font-semibold">01832449539</span>
               </p>
-              <button className="btn bg-emerald-900 text-white mt-3">
+              <button
+                className="btn bg-emerald-900 text-white mt-3"
+                type="button"
+              >
                 এখনই অর্ডার করুন
               </button>
             </div>
@@ -304,22 +462,29 @@ export default function OrderForm() {
         </div>
 
         {/* RIGHT: Summary */}
-        <aside className="lg:col-span-1">
+        <OrderSidebar></OrderSidebar>
+        {/* <aside className="lg:col-span-1">
           <div className="rounded-xl border border-base-300 bg-base-100 p-4 sticky top-6">
             <h3 className="font-bold">Your order</h3>
             <div className="divider my-2" />
             <div className="flex items-center gap-3">
               <img
-                src={selected.img}
-                alt={selected.name}
+                src={selected?.img}
+                alt={selected?.name}
                 className="h-14 w-14 rounded object-cover"
+                onError={(e) => {
+                  e.currentTarget.src =
+                    "https://via.placeholder.com/80x80?text=Image";
+                }}
               />
               <div className="flex-1">
-                <div className="font-medium leading-tight">{selected.name}</div>
+                <div className="font-medium leading-tight">
+                  {selected?.name}
+                </div>
                 <div className="text-xs opacity-70">Quantity × {qty}</div>
               </div>
               <div className="text-sm">
-                ৳{(price * qty).toLocaleString("bn-BD")}
+                ৳{(price * (Number(qty) || 1)).toLocaleString("bn-BD")}
               </div>
             </div>
 
@@ -342,8 +507,8 @@ export default function OrderForm() {
               রিটার্ন সাপোর্ট
             </div>
           </div>
-        </aside>
-      </div>
+        </aside> */}
+      </form>
     </section>
   );
 }

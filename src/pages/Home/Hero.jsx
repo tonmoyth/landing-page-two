@@ -32,10 +32,8 @@ export function Hero() {
 
   // products state (array)
   const [products, setProducts] = useState([]);
-  console.log(products);
   // UI state that depends on products (init as null/empty)
   const [mainImage, setMainImage] = useState(null);
-  console.log(mainImage);
   const [icons, setIcons] = useState([]);
 
   // normalize different key names from JSON
