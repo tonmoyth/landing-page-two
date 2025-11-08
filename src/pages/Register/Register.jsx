@@ -1,34 +1,46 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { AxiosSecure } from "../../Hooks/AxiosSecure";
 import { Link, useNavigate } from "react-router";
 import Swal from "sweetalert2";
 
 export default function Register() {
-  const [form, setForm] = useState({ username: "", email: "", password: "" });
   const axiosSecure = AxiosSecure();
-  const navigation = useNavigate();
+  const navigate = useNavigate();
+  
 
+  // Form state
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "admin", 
+  });
+
+
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    setForm({ ...form, [name]: value });
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axiosSecure.post("/register", form);
-      // success alert
+      const response = await axiosSecure.post("/register", form,);
+
+      // Success alert
       Swal.fire({
         icon: "success",
         title: "Register Successful",
-        text: `Welcome back, ${response.data.username || "User"}!`,
+        text: ` ${response.data.message || "User"}!`,
         timer: 2000,
         showConfirmButton: false,
       });
-      navigation("/login");
+
+      navigate("/login");
     } catch (error) {
-      // error alert
+      // Error alert
       Swal.fire({
         icon: "error",
         title: "Register Failed",
@@ -46,14 +58,14 @@ export default function Register() {
           <h2 className="text-2xl font-bold text-center mb-4">Register</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
-              type="text"
-              name="username"
-              placeholder="Username"
-              value={form.username}
-              onChange={handleChange}
-              className="input input-bordered w-full"
-              required
-            />
+  type="text"
+  name="name"      
+  placeholder="Name"
+  value={form.name}
+  onChange={handleChange}
+  className="input input-bordered w-full"
+  required
+/>
             <input
               type="email"
               name="email"

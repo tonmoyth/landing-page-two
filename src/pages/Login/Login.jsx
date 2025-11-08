@@ -4,14 +4,17 @@ import { AxiosSecure } from "../../Hooks/AxiosSecure";
 import Swal from "sweetalert2";
 
 export default function Login() {
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const axiosSecure = AxiosSecure();
-  const navigation = useNavigate();
+  const navigate = useNavigate();
 
+  // ✅ Corrected handleChange
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
   };
+
+  console.log(form);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +28,9 @@ export default function Login() {
         timer: 2000,
         showConfirmButton: false,
       });
-      navigation("/admin");
+
+      // ✅ Redirect after successful login
+      navigate("/admin");
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -42,12 +47,13 @@ export default function Login() {
       <div className="card w-full max-w-sm shadow-md bg-base-100">
         <div className="card-body">
           <h2 className="text-2xl font-bold text-center mb-4">Login</h2>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
-              type="text"
-              name="username"
-              placeholder="username"
-              value={form.username}
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={form.email}
               onChange={handleChange}
               className="input input-bordered w-full"
               required
@@ -65,6 +71,7 @@ export default function Login() {
               Login
             </button>
           </form>
+
           <p className="text-sm text-center mt-3">
             Don't have an account?{" "}
             <Link to="/register" className="link link-primary">

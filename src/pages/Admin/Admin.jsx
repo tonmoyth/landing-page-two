@@ -11,19 +11,15 @@ import {
 import { Moon, Sun, Menu } from "lucide-react";
 import { AxiosSecure } from "../../Hooks/AxiosSecure";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router";
 
-/**
- * SimpleSidebarDashboard
- * - Sidebar + Topbar
- * - Clean layout with Tailwind + DaisyUI
- * - KPI cards, chart, and table
- */
+
+
 export default function Admin() {
-  const [theme, setTheme] = useState("light");
   const [open, setOpen] = useState(false);
   const [orders, setOrders] = useState([]);
-  console.log(orders);
   const axiosSecure = AxiosSecure();
+  const navigation = useNavigate()
 
   // Close drawer on resize up to lg to ensure correct state
   useEffect(() => {
@@ -34,6 +30,7 @@ export default function Admin() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
 
   // useEffect(() => {
   //   document.documentElement.setAttribute("data-theme", theme);
@@ -61,15 +58,15 @@ export default function Admin() {
     const fetchOrders = async () => {
       try {
         const response = await axiosSecure.get("/ordersA");
-        console.log(response.data);
         setOrders(response.data);
       } catch (error) {
+        navigation("/login")
         console.error("Error fetching orders:", error);
       }
     };
 
     fetchOrders();
-  }, []);
+  }, [axiosSecure]);
 
   const logout = async () => {
     const res = await axiosSecure.post("/logout");
