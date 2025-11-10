@@ -1,25 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { Moon, Sun, Menu } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { Menu } from "lucide-react";
 import { AxiosSecure } from "../../Hooks/AxiosSecure";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router";
-
-
+import { NavLink, Outlet } from "react-router";
 
 export default function Admin() {
   const [open, setOpen] = useState(false);
-  const [orders, setOrders] = useState([]);
   const axiosSecure = AxiosSecure();
-  const navigation = useNavigate()
 
   // Close drawer on resize up to lg to ensure correct state
   useEffect(() => {
@@ -31,54 +19,48 @@ export default function Admin() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-
-  // useEffect(() => {
-  //   document.documentElement.setAttribute("data-theme", theme);
-  // }, [theme]);
-
-  const data = useMemo(
-    () => [
-      { name: "Jan", value: 12 },
-      { name: "Feb", value: 15 },
-      { name: "Mar", value: 18 },
-      { name: "Apr", value: 16 },
-      { name: "May", value: 20 },
-      { name: "Jun", value: 21 },
-    ],
-    []
-  );
-
-  const rows = [
-    { id: "#1001", name: "Arif Khan", total: 4200, status: "Paid" },
-    { id: "#1002", name: "Nusrat Jahan", total: 1999, status: "Pending" },
-    { id: "#1003", name: "Mehedi Hasan", total: 650, status: "Refunded" },
-  ];
-
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await axiosSecure.get("/ordersA");
-        setOrders(response.data);
-      } catch (error) {
-        navigation("/login")
-        console.error("Error fetching orders:", error);
-      }
-    };
-
-    fetchOrders();
-  }, [axiosSecure]);
-
   const logout = async () => {
-    const res = await axiosSecure.post("/logout");
-    if (res?.data?.message) {
-      Swal.fire({
-        title: " logout Successfully",
-        // text: "Your order has been placed successfully. Thank you for shopping with us!",
-        icon: "success",
-      });
+    // Step 1: Confirmation alert দেখাও
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You will be logged out of your account.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, logout!",
+    });
+
+    // Step 2: যদি ইউজার 'Yes' ক্লিক করে
+    if (result.isConfirmed) {
+      try {
+        const res = await axiosSecure.post(
+          "/logout",
+          {},
+          { withCredentials: true }
+        );
+
+        if (res?.data?.message) {
+          // Step 3: Success alert দেখাও
+          await Swal.fire({
+            title: "Logged out successfully!",
+            icon: "success",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+
+          // Step 4: Page reload করাও
+          window.location.reload();
+        }
+      } catch (err) {
+        Swal.fire({
+          title: "Logout failed!",
+          text: err.response?.data?.message || "Something went wrong.",
+          icon: "error",
+        });
+      }
     }
   };
-
   return (
     <div className="drawer lg:drawer-open min-h-screen bg-base-200">
       {/* Drawer Toggle (controlled) */}
@@ -113,23 +95,49 @@ export default function Admin() {
           <nav className="flex-1 overflow-y-auto">
             <ul className="menu p-4 gap-1">
               <li>
-                <a className="active">Dashboard</a>
+                <NavLink
+                  to="/admin/dashboard"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "active font-bold text-blue-600"
+                      : "text-gray-700"
+                  }
+                >
+                  Dashboard
+                </NavLink>
               </li>
               <li>
-                <a>Orders</a>
+                <NavLink
+                  to="/admin/orders"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "active font-bold text-blue-600"
+                      : "text-gray-700"
+                  }
+                >
+                  Orders
+                </NavLink>
               </li>
               <li>
-                <a>Upload Images</a>
+                <NavLink
+                  to="/admin/productsImage"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "active font-bold text-blue-600"
+                      : "text-gray-700"
+                  }
+                >
+                  Products
+                </NavLink>
               </li>
               <li>
-                <a onClick={logout}>Log Out</a>
+                <button
+                  onClick={logout}
+                  className="w-full text-left text-gray-700 hover:text-red-500"
+                >
+                  Log Out
+                </button>
               </li>
-              {/* <li>
-                <a>Reports</a>
-              </li>
-              <li>
-                <a>Settings</a>
-              </li> */}
             </ul>
           </nav>
           <div className="p-4 border-t border-base-300 text-xs opacity-60">
@@ -156,113 +164,10 @@ export default function Admin() {
           <div className="flex-1 text-base sm:text-lg font-semibold">
             Dashboard
           </div>
-          {/* <div className="flex-none">
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() =>
-                setTheme((t) => (t === "light" ? "emerald" : "light"))
-              }
-              aria-label="Toggle theme"
-            >
-              {theme === "light" ? (
-                <Moon className="w-4 h-4" />
-              ) : (
-                <Sun className="w-4 h-4" />
-              )}
-              <span className="ml-2 hidden sm:inline">Theme</span>
-            </button>
-          </div> */}
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {/* KPI Cards */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="stats bg-base-100 shadow">
-              <div className="stat">
-                <div className="stat-title">Revenue</div>
-                <div className="stat-value">৳27k</div>
-                <div className="stat-desc">+8% MoM</div>
-              </div>
-            </div>
-            <div className="stats bg-base-100 shadow">
-              <div className="stat">
-                <div className="stat-title">Orders</div>
-                {/* <div className="stat-value">590</div> */}
-                <div className="stat-desc">{orders.length}</div>
-              </div>
-            </div>
-            {/* <div className="stats bg-base-100 shadow">
-              <div className="stat">
-                <div className="stat-title">Customers</div>
-                <div className="stat-value">148</div>
-                <div className="stat-desc">+12%</div>
-              </div>
-            </div> */}
-          </section>
-
-          {/* Chart */}
-          <section className="card bg-base-100 shadow mt-4">
-            <div className="card-body">
-              <h2 className="card-title">Monthly Overview</h2>
-              <div className="w-full h-56 sm:h-64 lg:h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={data}
-                    margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </section>
-
-          {/* Table */}
-          <section className="card bg-base-100 shadow mt-4">
-            <div className="card-body">
-              <h2 className="card-title">Recent Orders</h2>
-              <div className="overflow-x-auto -mx-2 sm:mx-0">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Invoice</th>
-                      <th>Customer</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="font-mono">{r.id}</td>
-                        <td>{r.name}</td>
-                        <td>৳{r.total.toLocaleString()}</td>
-                        <td>
-                          <span
-                            className={`badge ${
-                              r.status === "Paid"
-                                ? "badge-success"
-                                : r.status === "Pending"
-                                ? "badge-warning"
-                                : "badge-neutral"
-                            }`}
-                          >
-                            {r.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        </main>
+        <Outlet></Outlet>
       </div>
     </div>
   );

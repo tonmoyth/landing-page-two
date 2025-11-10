@@ -1,8 +1,9 @@
 // Hero.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { AxiosSecure } from "../../Hooks/AxiosSecure";
+import heroImage from "../../assets/hero1.png";
 
-/* ---------- Responsive breakpoint hook ---------- */
 function useBreakpoint() {
   const get = () => {
     if (typeof window === "undefined" || !("matchMedia" in window))
@@ -32,30 +33,37 @@ export function Hero() {
 
   // products state (array)
   const [products, setProducts] = useState([]);
+  console.log(products);
+
   // UI state that depends on products (init as null/empty)
   const [mainImage, setMainImage] = useState(null);
   const [icons, setIcons] = useState([]);
+  const axiosSecure = AxiosSecure();
 
   // normalize different key names from JSON
-  const normalize = (item) => ({
-    id: item.id,
-    alt: item.alt || item.name || "Product",
-    src: item.src || item.img, // accept either src or img
-    icon: item.icon || item.icons || [], // accept icon or icons
-  });
+  // const normalize = (item) => ({
+  //   id: item.id,
+  //   alt: item.alt || item.name || "Product",
+  //   src: item.src || item.img, // accept either src or img
+  //   icon: item.icon || item.icons || [], // accept icon or icons
+  // });
 
   useEffect(() => {
-    fetch("/products.json")
-      .then((res) => res.json())
-      .then((data) => {
-        const list = data.map(normalize);
-        setProducts(list);
-        if (list.length) {
-          setMainImage(list[0].src);
-          setIcons(list[0].icon || []);
+    const fetchProducts = async () => {
+      try {
+        const res = await axiosSecure.get("/products");
+        setProducts(res.data);
+
+        if (res.data.length) {
+          setMainImage(res.data[0].img); // use "img" instead of "src"
+          setIcons(res.data[0].icons || []); //  use "icons" instead of "icon"
         }
-      })
-      .catch((error) => console.error("Error loading products:", error));
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   const jarHeight = useMemo(() => {
@@ -71,16 +79,21 @@ export function Hero() {
     }
   }, [bp]);
 
-  const handleImageChange = (img) => {
-    setMainImage(img.src);
-    setIcons(img.icon || []);
+  const handleImageChange = (p) => {
+    setMainImage(p.img);
+    setIcons(p.icons || []);
   };
 
   return (
     <section className="relative w-full overflow-visible">
       <div
         className="relative mx-auto w-full overflow-visible h-[520px] sm:h-[600px] md:h-[680px] lg:h-[720px]"
-        style={{ backgroundColor: "skyblue" }}
+        style={{
+          backgroundImage: `url(${heroImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
       >
         {/* ---- MAIN IMAGE ---- */}
         {mainImage && (
@@ -182,22 +195,22 @@ export function Hero() {
 
         {/* ---- PRODUCT BUTTONS ---- */}
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4">
-          {products.map((img) => (
+          {products.map((p) => (
             <button
-              key={img.id}
+              key={p._id}
               type="button"
-              onClick={() => handleImageChange(img)}
+              onClick={() => handleImageChange(p)}
               className={`overflow-hidden rounded-lg border-2 transition ${
-                mainImage === img.src
+                mainImage === p.img
                   ? "border-primary ring ring-primary/50"
                   : "border-transparent hover:border-primary/50"
               }`}
-              title={img.alt}
+              title={p?.name}
             >
               <img
-                alt={img.alt}
+                alt={p?.name}
                 className="w-20 h-20 object-cover hover:opacity-90"
-                src={img.src}
+                src={p?.img}
               />
             </button>
           ))}

@@ -7,6 +7,11 @@ import { RouterProvider } from "react-router/dom";
 import Admin from "./pages/Admin/Admin";
 import Register from "./pages/Register/Register";
 import Login from "./pages/Login/Login";
+import AllOrders from "./pages/allOrders/AllOrders";
+import Dashboard from "./pages/Admin/Dashboard";
+import ProductsPage from "./pages/Admin/ProductsPage";
+import ProductsUpload from "./pages/Admin/ProductsUpload";
+import ProductEdit from "./pages/Admin/ProductEdit";
 
 const router = createBrowserRouter([
   {
@@ -24,6 +29,32 @@ const router = createBrowserRouter([
   {
     path: "admin",
     Component: Admin,
+    children: [
+      {
+        index: true,
+        Component: Dashboard,
+      },
+      {
+        path: "dashboard",
+        Component: Dashboard,
+      },
+      {
+        path: "orders",
+        Component: AllOrders,
+      },
+      {
+        path: "productsImage",
+        Component: ProductsPage,
+      },
+      {
+        path: "productsUpload",
+        Component: ProductsUpload,
+      },
+      {
+        path: "productEdit/:id",
+        Component: ProductEdit,
+      },
+    ],
   },
 ]);
 

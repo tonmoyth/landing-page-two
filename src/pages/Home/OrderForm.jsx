@@ -4,12 +4,6 @@ import { AxiosSecure } from "../../Hooks/AxiosSecure";
 import Swal from "sweetalert2";
 import OrderSidebar from "../../components/OrderChackSection/OrderChackSection";
 
-/**
- * OrderForm.jsx — React + Tailwind + daisyUI + react-hook-form
- * - Fetches products from /products.json (public/products.json)
- * - Radio card selector (controlled), quantity control
- * - Bengali labels + validation
- */
 export default function OrderForm() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,36 +31,38 @@ export default function OrderForm() {
     },
   });
 
-  // Fetch products (adjust the path if your file is in another folder)
+  // Fetch products
   useEffect(() => {
-    setLoading(true);
-    setErr("");
-    fetch("/products.json")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-
+    const fetchProducts = async () => {
+      try {
+        const res = await axiosSecure.get("/products");
+        const list = Array.isArray(res.data) ? res.data : [];
         setProducts(list);
-        // set default product on first load
-        const firstId = list[0]?.id ?? "";
-        reset((prev) => ({ ...prev, productId: firstId }));
-      })
-      .catch((e) => setErr(`Failed to load products: ${e.message}`))
-      .finally(() => setLoading(false));
-  }, [reset]);
+
+        // Auto-select first product
+        if (list.length) {
+          setValue("productId", String(list[0]._id), { shouldValidate: true });
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        setErr("পণ্য লোড করা যায়নি। পরে আবার চেষ্টা করুন।");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [axiosSecure, setValue]);
 
   const productId = watch("productId");
   const qty = watch("qty") || 1;
 
-  // Selected product (depends on both productId and products)
+  // Selected product by _id (Mongo)
   const selected = useMemo(() => {
-    return products.find((p) => String(p.id) === String(productId)) || null;
+    return products.find((p) => String(p._id) === String(productId)) || null;
   }, [productId, products]);
 
-  // Totals (safe guards)
+  // Totals
   const price = Number(selected?.price || 0);
   const subtotal = price * (Number(qty) || 1);
   const shipping = 0;
@@ -76,11 +72,12 @@ export default function OrderForm() {
     const payload = {
       ...values,
       qty: Number(values.qty) || 1,
-      product: selected,
+      product: selected, // send selected product snapshot
       pricing: { price, subtotal, shipping, total },
       createdAt: new Date().toISOString(),
     };
-    Swal.fire({
+
+    const confirm = await Swal.fire({
       title: "Are you sure?",
       text: "Are you sure you want to place this order?",
       icon: "warning",
@@ -88,29 +85,38 @@ export default function OrderForm() {
       confirmButtonColor: "#3085d6",
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, order it!",
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await axiosSecure.post("/orders", payload);
-          if (response?.data?.orderId) {
-            Swal.fire({
-              title: " Order Successfully",
-              text: "Your order has been placed successfully. Thank you for shopping with us!",
-              icon: "success",
-            });
-          }
-        } catch (error) {
-          Swal.fire({
-            title: `${error.message}`,
-            text: "Your file has been deleted.",
-            icon: "error",
-          });
-        }
-      }
     });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const response = await axiosSecure.post("/orders", payload);
+      if (response?.data?.orderId) {
+        Swal.fire({
+          title: "Order Successfully",
+          text: "Your order has been placed successfully. Thank you for shopping with us!",
+          icon: "success",
+        });
+        reset({
+          productId,
+          qty: 1,
+          email: "",
+          name: "",
+          status: "pending",
+          phone: "",
+          address: "",
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Order failed",
+        text: error?.response?.data?.message || error.message,
+        icon: "error",
+      });
+    }
   };
 
-  // UI states
+  // Loading UI
   if (loading) {
     return (
       <section className="w-full py-6 sm:py-10">
@@ -131,6 +137,7 @@ export default function OrderForm() {
     );
   }
 
+  // Error UI
   if (err) {
     return (
       <section className="w-full py-6 sm:py-10">
@@ -143,6 +150,7 @@ export default function OrderForm() {
     );
   }
 
+  // No product UI
   if (!selected) {
     return (
       <section className="w-full py-6 sm:py-10">
@@ -156,7 +164,7 @@ export default function OrderForm() {
   }
 
   return (
-    <section className="w-full py-6 sm:py-10">
+    <section id="orderSection" className="w-full py-6 sm:py-10">
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="mx-auto w-11/12 lg:w-10/12 grid grid-cols-1 lg:grid-cols-3 gap-6"
@@ -180,34 +188,42 @@ export default function OrderForm() {
                 render={({ field }) => (
                   <div className="grid sm:grid-cols-3 gap-3">
                     {products.map((p) => {
-                      const isActive = String(field.value) === String(p.id);
+                      const id = String(p._id);
+                      const isActive = String(field.value) === id;
+
                       return (
                         <label
-                          key={p.id}
+                          key={id}
                           className={`card cursor-pointer border transition ${
                             isActive
                               ? "border-emerald-900 ring-2 ring-emerald-900/40"
                               : "border-emerald-900/40 hover:border-emerald-900/70"
                           }`}
                         >
-                          <div
-                            className="card-body p-3"
-                            onClick={() => field.onChange(p.id)}
-                          >
+                          <div className="card-body p-3">
                             <div className="flex items-center gap-3">
+                              {/* Controlled radio */}
                               <input
                                 type="radio"
                                 className="radio"
+                                name={field.name}
                                 checked={isActive}
-                                onChange={() => field.onChange(p.id)}
+                                onChange={() => field.onChange(id)}
                               />
                               <img
                                 src={p.img}
                                 alt={p.name}
                                 className="h-12 w-12 rounded object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src =
+                                    "https://via.placeholder.com/80x80?text=Image";
+                                }}
                               />
                             </div>
-                            <div className="mt-2">
+                            <div
+                              className="mt-2"
+                              onClick={() => field.onChange(id)}
+                            >
                               <h4 className="font-semibold leading-tight">
                                 {p.name}
                               </h4>
@@ -347,8 +363,7 @@ export default function OrderForm() {
                   {...register("phone", {
                     required: "ফোন নাম্বার প্রয়োজন",
                     pattern: {
-                      // Bangladesh mobile pattern (basic): starts with 01 and 11 digits total
-                      value: /^01[0-9]{9}$/,
+                      value: /^01[0-9]{9}$/, // 11 digits BD
                       message: "সঠিক ফোন নাম্বার দিন (১১ ডিজিট)",
                     },
                   })}
@@ -390,21 +405,6 @@ export default function OrderForm() {
                   </p>
                 )}
               </div>
-
-              {/* Floor/Flat */}
-              {/* <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-semibold text-gray-800">
-                    🏢 ফ্লোর/ফ্ল্যাট
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="যদি প্রযোজ্য (যেমন: ১, ২, ৩)"
-                  className="input input-bordered w-full focus:ring-2 focus:ring-emerald-600 focus:outline-none transition"
-                  {...register("unit")}
-                />
-              </div> */}
             </div>
 
             <div className="mt-5">
@@ -451,63 +451,18 @@ export default function OrderForm() {
                 সরাসরি কল করুন অর্ডার করতে:{" "}
                 <span className="font-semibold">01832449539</span>
               </p>
-              <button
+              {/* <button
                 className="btn bg-emerald-900 text-white mt-3"
                 type="button"
               >
                 এখনই অর্ডার করুন
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
 
         {/* RIGHT: Summary */}
-        <OrderSidebar></OrderSidebar>
-        {/* <aside className="lg:col-span-1">
-          <div className="rounded-xl border border-base-300 bg-base-100 p-4 sticky top-6">
-            <h3 className="font-bold">Your order</h3>
-            <div className="divider my-2" />
-            <div className="flex items-center gap-3">
-              <img
-                src={selected?.img}
-                alt={selected?.name}
-                className="h-14 w-14 rounded object-cover"
-                onError={(e) => {
-                  e.currentTarget.src =
-                    "https://via.placeholder.com/80x80?text=Image";
-                }}
-              />
-              <div className="flex-1">
-                <div className="font-medium leading-tight">
-                  {selected?.name}
-                </div>
-                <div className="text-xs opacity-70">Quantity × {qty}</div>
-              </div>
-              <div className="text-sm">
-                ৳{(price * (Number(qty) || 1)).toLocaleString("bn-BD")}
-              </div>
-            </div>
-
-            <div className="divider my-3" />
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>৳{subtotal.toLocaleString("bn-BD")}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Total</span>
-                <span className="font-semibold">
-                  ৳{total.toLocaleString("bn-BD")}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-3 p-3 rounded-lg bg-warning/20 text-sm">
-              📦 ফ্রি হোম ডেলিভারি · পণ্য হাতে পেয়ে টাকা নিন · ক্যাশব্যাক · ফ্রি
-              রিটার্ন সাপোর্ট
-            </div>
-          </div>
-        </aside> */}
+        <OrderSidebar />
       </form>
     </section>
   );

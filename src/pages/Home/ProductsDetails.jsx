@@ -30,12 +30,12 @@ export default function ProductsDetails() {
               <span className="text-emerald-900">Nutureal Pure Honey</span>
             </h1>
 
-            <div className="flex gap-2">
+            {/* <div className="flex gap-2">
               <button className="btn  bg-emerald-900 text-white">
                 অর্ডার করুন এখনই
               </button>
               <button className="btn btn-outline">উপকারিতা দেখুন</button>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -82,7 +82,15 @@ export default function ProductsDetails() {
 
           {/* CTA bottom */}
           <div className="py-6 flex justify-center">
-            <button className="btn bg-emerald-900 btn-wide text-white">
+            <button
+              onClick={() => {
+                const section = document.getElementById("orderSection");
+                if (section) {
+                  section.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+              className="btn bg-emerald-900 btn-wide text-white"
+            >
               এখনই অর্ডার করুন
             </button>
           </div>
